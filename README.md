@@ -2,6 +2,6 @@
 
 Deployng a Keras model with TF-Serving and EKS
 
-* Here's a detailed step-by-step guide for doing it: [guide.md]
+* Here's a detailed step-by-step guide for doing it: [guide.md](guide.md)
 * Want to talk about it? Join [DataTalks.Club](https://datatalks.club)
 
