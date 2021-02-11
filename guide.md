@@ -404,217 +404,184 @@ ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:9696", "model_server:app"]
 
 Build the image:
 
-IMAGE\_GATEWAY\_LOCAL="serving-gateway"
-
-docker build -t ${IMAGE\_GATEWAY\_LOCAL} -f gateway.dockerfile .
+```bash
+IMAGE_GATEWAY_LOCAL="serving-gateway"
+docker build -t ${IMAGE_GATEWAY_LOCAL} -f gateway.dockerfile .
+```
 
 Push to ECR:
 
-IMAGE\_GATEWAY\_REMOTE=${REGISTRY}:${IMAGE\_GATEWAY\_LOCAL}
+```bash
+IMAGE_GATEWAY_REMOTE=${REGISTRY}:${IMAGE_GATEWAY_LOCAL}
+docker tag ${IMAGE_GATEWAY_LOCAL} ${IMAGE_GATEWAY_REMOTE}
 
-docker tag ${IMAGE\_GATEWAY\_LOCAL} ${IMAGE\_GATEWAY\_REMOTE}
+docker push ${IMAGE_GATEWAY_REMOTE}
+```
 
-docker push ${IMAGE\_GATEWAY\_REMOTE}
-
-Done\!
+Done!
 
 ## Deploy the TF-Serving component
 
 Now let’s prepare the deployment config. Let’s call it
-“tf-serving-clothing-model-deployment.yaml”:
+`tf-serving-clothing-model-deployment.yaml`:
 
-**apiVersion**: apps/v1
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tf-serving-clothing-model
+  labels:
+    app: tf-serving-clothing-model
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tf-serving-clothing-model
+  template:
+    metadata:
+      labels:
+        app: tf-serving-clothing-model
+    spec:
+      containers:
+      - name: tf-serving-clothing-model
+        image: XXXXXXXXXXXX.dkr.ecr.eu-west-1.amazonaws.com/model-serving:tf-serving-clothing-model
+        ports:
+          - containerPort: 8500
+```
 
-**kind**: Deployment
-
-**metadata**:
-
-**name**: tf-serving-clothing-model
-
-**labels**:
-
-**app**: tf-serving-clothing-model
-
-**spec**:
-
-**replicas**: 1
-
-**selector**:
-
-**matchLabels**:
-
-**app**: tf-serving-clothing-model
-
-**template**:
-
-**metadata**:
-
-**labels**:
-
-**app**: tf-serving-clothing-model
-
-**spec**:
-
-**containers**:
-
-\- **name**: tf-serving-clothing-model
-
-**image**:
-XXXXXXXXXXXX.dkr.ecr.eu-west-1.amazonaws.com/model-serving:tf-serving-clothing-model
-
-**ports**:
-
-\- **containerPort**: 8500
-
-Here, we use the image from ${IMAGE\_SERVING\_REMOTE} (Don’t forget to
+Here, we use the image from `${IMAGE_SERVING_REMOTE}` (Don’t forget to
 replace XXXXXXXXXXXX by your account number)
 
 Apply it:
 
+```bash
 kubectl apply -f tf-serving-clothing-model-deployment.yaml
-
+```
 Check that it’s working
 
+```bash
 kubectl get pod
-
+```
 You should see that
 
-NAME READY STATUS RESTARTS AGE
+```
+NAME                                         READY   STATUS    RESTARTS   AGE
+tf-serving-clothing-model-6b5ff86f77-dlsdc   1/1     Running   0          86s
+```
 
-tf-serving-clothing-model-6b5ff86f77-dlsdc 1/1 Running 0 86s
 
 If you see that it’s pending, give it some time (1-2 minutes).
 Kebernetes needs to allocate some nodes first, so the service can work.
 
 Now create a config for the service. Let’s call it
-”tf-serving-clothing-model-service.yaml”:
+`tf-serving-clothing-model-service.yaml`:
 
-**apiVersion**: v1
 
-**kind**: Service
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: tf-serving-clothing-model
+  labels:
+    app: tf-serving-clothing-model
+spec:
+  ports:
+    - port: 8500
+      targetPort: 8500
+      protocol: TCP
+      name: http
+  selector:
+    app: tf-serving-clothing-model
+```
 
-**metadata**:
-
-**name**: tf-serving-clothing-model
-
-**labels**:
-
-**app**: tf-serving-clothing-model
-
-**spec**:
-
-**ports**:
-
-\- **port**: 8500
-
-**targetPort**: 8500
-
-**protocol**: TCP
-
-**name**: http
-
-**selector**:
-
-**app**: tf-serving-clothing-model
 
 Apply
 
+```bash
 kubectl apply -f tf-serving-clothing-model-service.yaml
+```
 
 Let’s check that it works
 
+```bash
 kubectl get services
+```
 
 We should see something like that
 
-NAME TYPE CLUSTER-IP EXTERNAL-IP PORT(S) AGE
-
-kubernetes ClusterIP 10.100.0.1 \<none\> 443/TCP 84m
-
-tf-serving-clothing-model ClusterIP 10.100.111.165 \<none\> 8500/TCP 19s
+```
+NAME                        TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
+kubernetes                  ClusterIP   10.100.0.1       <none>        443/TCP    84m
+tf-serving-clothing-model   ClusterIP   10.100.111.165   <none>        8500/TCP   19s
+```
 
 The url that we can use to access this service internally looks like
 that
 
-“\<service-name\>.\<namespace-name\>.svc.cluster.local”
+`<service-name>.<namespace-name>.svc.cluster.local`
 
 For us, the namespace is “default” and the service name is
 “tf-serving-clothing-model”, so the full URL should be
-“tf-serving-clothing-model.default.svc.cluster.local”.
+
+`tf-serving-clothing-model.default.svc.cluster.local`
 
 We’ll need it later.
 
 ## Deploy the Serving Gateway component
 
 Now let’s create a config for deploying the gateway. We’ll call it
-“serving-gateway-deployment.yaml”:
+`serving-gateway-deployment.yaml`:
 
-**apiVersion**: apps/v1
 
-**kind**: Deployment
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: serving-gateway
+  labels:
+    app: serving-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: serving-gateway
+  template:
+    metadata:
+      labels:
+        app: serving-gateway
+    spec:
+      containers:
+      - name: serving-gateway
+        image: XXXXXXXXXXXX.dkr.ecr.eu-west-1.amazonaws.com/model-serving:serving-gateway
+        ports:
+          - containerPort: 9696
+        env:
+          - name: TF_SERVING_HOST
+            value: "tf-serving-clothing-model.default.svc.cluster.local:8500"
+```
 
-**metadata**:
 
-**name**: serving-gateway
-
-**labels**:
-
-**app**: serving-gateway
-
-**spec**:
-
-**replicas**: 1
-
-**selector**:
-
-**matchLabels**:
-
-**app**: serving-gateway
-
-**template**:
-
-**metadata**:
-
-**labels**:
-
-**app**: serving-gateway
-
-**spec**:
-
-**containers**:
-
-\- **name**: serving-gateway
-
-**image**:
-XXXXXXXXXXXX.dkr.ecr.eu-west-1.amazonaws.com/model-serving:serving-gateway
-
-**ports**:
-
-\- **containerPort**: 9696
-
-**env**:
-
-\- **name**: TF\_SERVING\_HOST
-
-**value**: "tf-serving-clothing-model.default.svc.cluster.local:8500"
-
-Don’t forget to replace “XXXXXXXXXXXX” by your account number.
+Don’t forget to replace `XXXXXXXXXXXX` by your account number.
 
 Let’s apply it:
 
+```bash
 kubectl apply -f serving-gateway-deployment.yaml
+```
 
 Check:
 
+```bash
 kubectl get pod
+```
 
 It should print something like that:
 
-NAME READY STATUS RESTARTS AGE
-
-serving-gateway-58b5cb4578-rj6j2 1/1 Running 0 22m
-
-tf-serving-clothing-model-6b5ff86f77-dlsdc 1/1 Running 0 31m
+```
+NAME                                         READY   STATUS    RESTARTS   AGE
+serving-gateway-58b5cb4578-rj6j2             1/1     Running   0          22m
+tf-serving-clothing-model-6b5ff86f77-dlsdc   1/1     Running   0          31m
+```
 
 You might need to give it 1-2 minutes: it needs to download the image
 from ECR for the first run.
@@ -622,169 +589,154 @@ from ECR for the first run.
 Now we can do a quick check. Connect to this pod and see if our system
 works. We can do it with port-forwarding:
 
+```bash
 kubectl port-forward serving-gateway-58b5cb4578-rj6j2 9696:9696
+```
 
-Let’s test it. Create a file “test.py”:
+Let’s test it. Create a file `test.py`:
 
-**import** requests
+
+```python
+import requests
 
 req = {
-
-"url": "http://bit.ly/mlbookcamp-pants"
-
+    "url": "http://bit.ly/mlbookcamp-pants"
 }
 
 url = 'http://localhost:9696/predict'
 
 response = requests.post(url, json=req)
-
 print(response.json())
+```
 
 We will use this picture for testing:
 
-![](./media/image2.png)
+<img src="./media/image2.png" />
 
 So let’s run the script:
 
+```bash
 python test.py
+```
 
 It should print the predictions:
 
+```python
 {'dress': -1.868, 'hat': -4.761, 'longsleeve': -2.316, 'outwear':
 -1.062, 'pants': 9.887, 'shirt': -2.812, 'shoes': -3.666, 'shorts':
 3.200, 'skirt': -2.602, 't-shirt': -4.835}
+```
 
 We see that the score for pants is the highest. So it must be a picture
 of pants.
 
 Now let’s create a config for the service. We can call it
-“serving-gateway-service.yaml”:
+`serving-gateway-service.yaml`:
 
-**apiVersion**: v1
 
-**kind**: Service
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: serving-gateway
+  labels:
+    app: serving-gateway
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 9696
+      protocol: TCP
+      name: http
+  selector:
+    app: serving-gateway
+```
 
-**metadata**:
-
-**name**: serving-gateway
-
-**labels**:
-
-**app**: serving-gateway
-
-**spec**:
-
-**type**: LoadBalancer
-
-**ports**:
-
-\- **port**: 80
-
-**targetPort**: 9696
-
-**protocol**: TCP
-
-**name**: http
-
-**selector**:
-
-**app**: serving-gateway
 
 Note that the type is “LoadBalancer”. For this type of service, EKS will
-create a [<span class="underline">classic load
-balancer</span>](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/introduction.html)
-on AWS
+create a [classic load balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/introduction.html)
+on AWS.
 
 Let’s apply this config:
 
+```bash
 kubectl apply -f serving-gateway-service.yaml
+```
 
-To see the URL of the service, use “describe”:
+To see the URL of the service, use `describe`:
 
+```bash
 kubectl describe service serving-gateway
+```
 
 It should output some results:
 
-Name: serving-gateway
 
-Namespace: default
-
-Labels: \<none\>
-
-Annotations: \<none\>
-
-Selector: app=serving-gateway
-
-Type: LoadBalancer
-
-IP Families: \<none\>
-
-IP: 10.100.100.24
-
-IPs: \<none\>
-
-**LoadBalancer Ingress:
-ad1fad0c1302141989ed8ee449332e39-117019527.eu-west-1.elb.amazonaws.com**
-
-Port: http 80/TCP
-
-TargetPort: 9696/TCP
-
-NodePort: http 32196/TCP
-
-Endpoints: \<none\>
-
-Session Affinity: None
-
-External Traffic Policy: Cluster
-
+```
+Name:                     serving-gateway
+Namespace:                default
+Labels:                   <none>
+Annotations:              <none>
+Selector:                 app=serving-gateway
+Type:                     LoadBalancer
+IP Families:              <none>
+IP:                       10.100.100.24
+IPs:                      <none>
+LoadBalancer Ingress:     ad1fad0c1302141989ed8ee449332e39-117019527.eu-west-1.elb.amazonaws.com
+Port:                     http  80/TCP
+TargetPort:               9696/TCP
+NodePort:                 http  32196/TCP
+Endpoints:                <none>
+Session Affinity:         None
+External Traffic Policy:  Cluster
 Events:
+  Type    Reason                Age   From                Message
+  ----    ------                ----  ----                -------
+  Normal  EnsuringLoadBalancer  4s    service-controller  Ensuring load balancer
+  Normal  EnsuredLoadBalancer   2s    service-controller  Ensured load balancer
+```
 
-Type Reason Age From Message
-
-\---- ------ ---- ---- -------
-
-Normal EnsuringLoadBalancer 4s service-controller Ensuring load balancer
-
-Normal EnsuredLoadBalancer 2s service-controller Ensured load balancer
 
 We’re interested in “LoadBalancer Ingress”. This is the URL we’ll need
 to use:
 
 ad1fad0c1302141989ed8ee449332e39-117019527.eu-west-1.elb.amazonaws.com
 
-Now let’s update our “test.py” script:
+Now let’s update our `test.py` script:
 
-**import** requests
+```python
+import requests
 
 req = {
-
-"url": "http://bit.ly/mlbookcamp-pants"
-
+    "url": "http://bit.ly/mlbookcamp-pants"
 }
 
-url =
-'http://ad1fad0c1302141989ed8ee449332e39-117019527.eu-west-1.elb.amazonaws.com/predict'
+url = 'http://ad1fad0c1302141989ed8ee449332e39-117019527.eu-west-1.elb.amazonaws.com/predict'
 
 response = requests.post(url, json=req)
-
 print(response.json())
+```
 
 And run it:
 
 python test.py
 
-It works\!
+It works!
 
+```python
 {'dress': -1.868, 'hat': -4.761, 'longsleeve': -2.316, 'outwear':
 -1.062, 'pants': 9.887, 'shirt': -2.812, 'shoes': -3.666, 'shorts':
 3.200, 'skirt': -2.602, 't-shirt': -4.835}
+```
 
 If you see “Remote end closed connection without response”, wait a bit.
 The load balancer needs a bit of time to start.
+
 
 ## Deleting the cluster
 
 Use eksctl for that:
 
+```bash
 eksctl delete cluster --name ml-bookcamp-eks
+```
