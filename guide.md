@@ -15,8 +15,7 @@ Create a folder where you’ll keep it. For example, `~/bin`
 Go there, download the kubectl binary:
 
 ```bash
-curl -LO
-https://storage.googleapis.com/kubernetes-release/release/v1.20.0/bin/linux/amd64/kubectl
+curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.20.0/bin/linux/amd64/kubectl
 ```
 
 Make it executable:
