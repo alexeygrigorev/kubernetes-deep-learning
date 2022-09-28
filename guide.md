@@ -15,7 +15,7 @@ Create a folder where you’ll keep it. For example, `~/bin`
 Go there, download the kubectl binary:
 
 ```bash
-curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.20.0/bin/linux/amd64/kubectl
+curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.23.7/2022-06-29/bin/linux/amd64/kubectl
 ```
 
 Make it executable:
@@ -37,12 +37,13 @@ Add this line to your `.bashrc`
 
 Eksctl is a command line tool for creating and managing EKS clusters. [More info](https://docs.aws.amazon.com/eks/latest/userguide/eksctl.html)
 
-Let’s install it to the same `~/.bin` directory where we installed
-kubectl:
+Let’s install it to the same `~/.bin` directory where we installed kubectl:
 
 
 ```bash
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl\_$(uname-s)_amd64.tar.gz" | tar xz -C ~/bin/
+wget "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz"
+tar xzfv eksctl_Linux_amd64.tar.gz
+rm eksctl_$(uname -s)_amd64.tar.gz
 ```
 
 ## Create a EKS cluster
