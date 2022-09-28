@@ -42,9 +42,7 @@ kubectl:
 
 
 ```bash
-curl --silent --location
-"https://github.com/weaveworks/eksctl/releases/latest/download/eksctl\_$(uname
--s)_amd64.tar.gz" | tar xz -C ~/bin/
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl\_$(uname-s)_amd64.tar.gz" | tar xz -C ~/bin/
 ```
 
 ## Create a EKS cluster
